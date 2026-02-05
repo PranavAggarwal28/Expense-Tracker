@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt"
-
+import jwt, { sign } from "jsonwebtoken"
 const userSchema = new Schema({
   username:{
     type:String,
@@ -31,9 +31,9 @@ const userSchema = new Schema({
 },{timestamps:true})
 // below is password hashing using bcrypt
 userSchema.pre("save",async function (next) {
-  if(!this.isModified("password")) return next();
+  if(!this.isModified("password")) return ;
   this.password = await bcrypt.hash(this.password,10)
-  next();
+  
 })
 
 // comparing passwords
