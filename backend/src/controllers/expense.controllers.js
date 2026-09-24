@@ -1,148 +1,254 @@
-import {asyncHandler} from "../utils/asyncHandler.js"
-import {ApiError} from "../utils/apiError.js"
-import {ApiResponse} from "../utils/apiResponse.js"
-import { User } from "../models/user.models.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/apiError.js";
+import { ApiResponse } from "../utils/apiResponse.js";
+import { Expense, CATEGORIES } from "../models/expense.models.js";
 
+// Create a new expense/income
+const createExpense = asyncHandler(async (req, res) => {
+  const { title, amount, type, category, date, note } = req.body;
 
-const RegisterUser = asyncHandler(async (req,res)=>{
-  /* steps to register a user 
-    1. take all the data like {username , full name , email , password }
-    2. check all the data that is required is available 
-    3. check if user already exist
-    4. create user object in database
-    5. return res if user is successfully created
-    
-
-  */
-    // step 1 
-    const {username, fullname , email , password } = req.body ; 
-
-
-    // step 2 
-    if(
-      [username, fullname, email , password].some((field)=>field?.trim() === "")
-    ){
-      throw new ApiError(400,"all fields are required")
-    }
-
-    // step 3 
-
-    const existedUser = await User.findOne({
-      $or:[{username},{email}]
-    })
-
-
-    if(existedUser){
-      throw new ApiError(400 , "User with same email password already exist")
-    }
-
-
-    //step 4
-
-    const user = await User.create({
-      username,
-      fullname,
-      email,
-      password
-    })
-    const Createduser = await User.findById(user._id).select(
-      "-password"
-    )
-
-    if(!Createduser){
-      throw new ApiError(500,"There is some error while creating User please try again ")
-    }
-
-    // step 5 
-
-    return res
-    .status(201)
-    .json(new ApiResponse(200,Createduser,"User successfully registered"))
-
-})
-
-
-const LoginUser = asyncHandler(async (req,res)=>{
-  /* steps to login a user
-  1. take all the neccessary details like (email , password ) from the user 
-  2. check if all the details are correct or not .
-  3. check if user exist.
-  4. compare passwords.  
-  3. if correct generate a jason web token (access token (short lived)).
-  
-  
-  */
-
-  const {email, password} = req.body;
-
- //1
-
-  if(!email || !password){
-    throw new ApiError(400,"email or password is missing")
+  if (!title || !amount || !type || !category) {
+    throw new ApiError(400, "Title, amount, type, and category are required");
   }
 
-  // 2 
-  const user = await User.findOne({
-    email
-  })
-
-  if(!user){
-    throw new ApiError(400,"User does not exist")
+  if (!["income", "expense"].includes(type)) {
+    throw new ApiError(400, "Type must be 'income' or 'expense'");
   }
 
-
-  //3 
-
-  const isPasswordValid = await user.isPasswordCorrect(password);
-
-  if(!isPasswordValid){
-    throw new ApiError(401,"Invalid user credentials ")
+  if (!CATEGORIES.includes(category)) {
+    throw new ApiError(400, "Invalid category");
   }
 
-  const token =  jwt.sign(
-    {_id : user._id},
-    process.env.ACCESS_TOKEN_SECRET,
-    {
-      expiresIn:process.env.ACCESS_TOKEN_EXPIRY
-    }
-  )
+  const expense = await Expense.create({
+    title,
+    amount: parseFloat(amount),
+    type,
+    category,
+    date: date ? new Date(date) : new Date(),
+    note: note || "",
+    user: req.user._id,
+  });
 
-  
-
-  const loggedInuser = await User.findById(user._id).select(
-    "-password"
-  )
-
-   const options = {
-    //it makes cookies only modifiable through server only
-    httpOnly: true,
-    secure: true,
-  };
-  
   return res
-  .status(200)
-  .cookie("accessToken",token,options)
-  .json(
+    .status(201)
+    .json(new ApiResponse(201, expense, "Transaction created successfully"));
+});
+
+// Get all expenses for the logged-in user (with filtering)
+const getExpenses = asyncHandler(async (req, res) => {
+  const { type, category, startDate, endDate, page = 1, limit = 20 } = req.query;
+
+  const filter = { user: req.user._id };
+
+  if (type && ["income", "expense"].includes(type)) {
+    filter.type = type;
+  }
+  if (category && CATEGORIES.includes(category)) {
+    filter.category = category;
+  }
+  if (startDate || endDate) {
+    filter.date = {};
+    if (startDate) filter.date.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filter.date.$lte = end;
+    }
+  }
+
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  const [expenses, total] = await Promise.all([
+    Expense.find(filter).sort({ date: -1 }).skip(skip).limit(limitNum),
+    Expense.countDocuments(filter),
+  ]);
+
+  return res.status(200).json(
     new ApiResponse(
       200,
       {
-        user:loggedInuser,
-        token
+        expenses,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
       },
-      "User logged in successfully"
+      "Expenses fetched successfully"
     )
-  )
+  );
+});
 
-})
+// Get a single expense by ID
+const getExpenseById = asyncHandler(async (req, res) => {
+  const expense = await Expense.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
+  if (!expense) {
+    throw new ApiError(404, "Transaction not found");
+  }
 
+  return res
+    .status(200)
+    .json(new ApiResponse(200, expense, "Transaction fetched successfully"));
+});
 
+// Update an expense
+const updateExpense = asyncHandler(async (req, res) => {
+  const { title, amount, type, category, date, note } = req.body;
 
+  const expense = await Expense.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  });
 
+  if (!expense) {
+    throw new ApiError(404, "Transaction not found");
+  }
 
+  if (type && !["income", "expense"].includes(type)) {
+    throw new ApiError(400, "Type must be 'income' or 'expense'");
+  }
+  if (category && !CATEGORIES.includes(category)) {
+    throw new ApiError(400, "Invalid category");
+  }
 
+  if (title !== undefined) expense.title = title;
+  if (amount !== undefined) expense.amount = parseFloat(amount);
+  if (type !== undefined) expense.type = type;
+  if (category !== undefined) expense.category = category;
+  if (date !== undefined) expense.date = new Date(date);
+  if (note !== undefined) expense.note = note;
+
+  await expense.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, expense, "Transaction updated successfully"));
+});
+
+// Delete an expense
+const deleteExpense = asyncHandler(async (req, res) => {
+  const expense = await Expense.findOneAndDelete({
+    _id: req.params.id,
+    user: req.user._id,
+  });
+
+  if (!expense) {
+    throw new ApiError(404, "Transaction not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Transaction deleted successfully"));
+});
+
+// Get expense summary / stats
+const getExpenseSummary = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const matchStage = { user: req.user._id };
+  if (startDate || endDate) {
+    matchStage.date = {};
+    if (startDate) matchStage.date.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      matchStage.date.$lte = end;
+    }
+  }
+
+  const [totals, categoryBreakdown, monthlyTrend] = await Promise.all([
+    // Total income and expense
+    Expense.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$type",
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+
+    // Breakdown by category
+    Expense.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: { category: "$category", type: "$type" },
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+    ]),
+
+    // Monthly trend (last 6 months)
+    Expense.aggregate([
+      {
+        $match: {
+          ...matchStage,
+          date: {
+            $gte: new Date(new Date().setMonth(new Date().getMonth() - 5)),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+            type: "$type",
+          },
+          total: { $sum: "$amount" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+  ]);
+
+  // Format totals
+  let totalIncome = 0;
+  let totalExpense = 0;
+  totals.forEach((t) => {
+    if (t._id === "income") totalIncome = t.total;
+    if (t._id === "expense") totalExpense = t.total;
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        totalIncome,
+        totalExpense,
+        balance: totalIncome - totalExpense,
+        categoryBreakdown,
+        monthlyTrend,
+      },
+      "Summary fetched successfully"
+    )
+  );
+});
+
+// Get list of available categories
+const getCategories = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, CATEGORIES, "Categories fetched successfully"));
+});
 
 export {
-  RegisterUser,
-  LoginUser
-}
+  createExpense,
+  getExpenses,
+  getExpenseById,
+  updateExpense,
+  deleteExpense,
+  getExpenseSummary,
+  getCategories,
+};
