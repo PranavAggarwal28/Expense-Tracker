@@ -21,9 +21,10 @@ export default function Login() {
   };
 
   const handleChange = (e) => {
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
-    if (errors[e.target.name]) {
-      setErrors((p) => ({ ...p, [e.target.name]: "" }));
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (errors[name]) {
+      setErrors((p) => ({ ...p, [name]: "" }));
     }
   };
 

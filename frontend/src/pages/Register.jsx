@@ -44,8 +44,13 @@ export default function Register() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: name === "username" ? value.toLowerCase() : value }));
-    if (errors[name]) setErrors((p) => ({ ...p, [name]: "" }));
+    setForm((p) => ({
+      ...p,
+      [name]: name === "username" ? value.toLowerCase() : value,
+    }));
+    if (errors[name]) {
+      setErrors((p) => ({ ...p, [name]: "" }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -70,53 +75,6 @@ export default function Register() {
     }
   };
 
-  const Field = ({ name, label, type = "text", icon: Icon, placeholder }) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      <div style={{ position: "relative" }}>
-        <Icon
-          style={{
-            position: "absolute",
-            left: 14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: "var(--text-muted)",
-          }}
-        />
-        <input
-          type={name === "password" || name === "confirmPassword" ? (showPassword ? "text" : "password") : type}
-          name={name}
-          className={`form-control ${errors[name] ? "error" : ""}`}
-          style={{ paddingLeft: 38, paddingRight: name === "password" ? 44 : undefined }}
-          placeholder={placeholder}
-          value={form[name]}
-          onChange={handleChange}
-          autoComplete={name === "password" || name === "confirmPassword" ? "new-password" : name}
-        />
-        {name === "password" && (
-          <button
-            type="button"
-            onClick={() => setShowPassword((p) => !p)}
-            style={{
-              position: "absolute",
-              right: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              display: "flex",
-            }}
-          >
-            {showPassword ? <FiEyeOff /> : <FiEye />}
-          </button>
-        )}
-      </div>
-      {errors[name] && <span className="form-error">{errors[name]}</span>}
-    </div>
-  );
-
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
@@ -134,39 +92,159 @@ export default function Register() {
         <p className="auth-subtitle">Start tracking your expenses today</p>
 
         <form onSubmit={handleSubmit} noValidate>
-          <Field
-            name="username"
-            label="Username"
-            icon={FiUser}
-            placeholder="johndoe"
-          />
-          <Field
-            name="fullname"
-            label="Full Name"
-            icon={FiType}
-            placeholder="John Doe"
-          />
-          <Field
-            name="email"
-            label="Email Address"
-            type="email"
-            icon={FiMail}
-            placeholder="you@example.com"
-          />
-          <Field
-            name="password"
-            label="Password"
-            type="password"
-            icon={FiLock}
-            placeholder="Min 6 characters"
-          />
-          <Field
-            name="confirmPassword"
-            label="Confirm Password"
-            type="password"
-            icon={FiLock}
-            placeholder="Repeat your password"
-          />
+          {/* Username */}
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <div style={{ position: "relative" }}>
+              <FiUser
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type="text"
+                name="username"
+                className={`form-control ${errors.username ? "error" : ""}`}
+                style={{ paddingLeft: 38 }}
+                placeholder="johndoe"
+                value={form.username}
+                onChange={handleChange}
+                autoComplete="username"
+              />
+            </div>
+            {errors.username && <span className="form-error">{errors.username}</span>}
+          </div>
+
+          {/* Full Name */}
+          <div className="form-group">
+            <label className="form-label">Full Name</label>
+            <div style={{ position: "relative" }}>
+              <FiType
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type="text"
+                name="fullname"
+                className={`form-control ${errors.fullname ? "error" : ""}`}
+                style={{ paddingLeft: 38 }}
+                placeholder="John Doe"
+                value={form.fullname}
+                onChange={handleChange}
+                autoComplete="name"
+              />
+            </div>
+            {errors.fullname && <span className="form-error">{errors.fullname}</span>}
+          </div>
+
+          {/* Email */}
+          <div className="form-group">
+            <label className="form-label">Email Address</label>
+            <div style={{ position: "relative" }}>
+              <FiMail
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type="email"
+                name="email"
+                className={`form-control ${errors.email ? "error" : ""}`}
+                style={{ paddingLeft: 38 }}
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                autoComplete="email"
+              />
+            </div>
+            {errors.email && <span className="form-error">{errors.email}</span>}
+          </div>
+
+          {/* Password */}
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <div style={{ position: "relative" }}>
+              <FiLock
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                className={`form-control ${errors.password ? "error" : ""}`}
+                style={{ paddingLeft: 38, paddingRight: 44 }}
+                placeholder="Min 6 characters"
+                value={form.password}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  display: "flex",
+                }}
+              >
+                {showPassword ? <FiEyeOff /> : <FiEye />}
+              </button>
+            </div>
+            {errors.password && <span className="form-error">{errors.password}</span>}
+          </div>
+
+          {/* Confirm Password */}
+          <div className="form-group">
+            <label className="form-label">Confirm Password</label>
+            <div style={{ position: "relative" }}>
+              <FiLock
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="confirmPassword"
+                className={`form-control ${errors.confirmPassword ? "error" : ""}`}
+                style={{ paddingLeft: 38, paddingRight: 44 }}
+                placeholder="Repeat your password"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+            </div>
+            {errors.confirmPassword && (
+              <span className="form-error">{errors.confirmPassword}</span>
+            )}
+          </div>
 
           <button
             type="submit"

@@ -13,14 +13,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-redirect on 401
+// Auto-redirect on 401 (only for protected routes, not on auth views or login attempts)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/login";
+      const url = err.config?.url || "";
+      const isAuthRoute =
+        url.includes("/users/login") ||
+        url.includes("/users/register");
+      const isAuthPage =
+        window.location.pathname === "/login" ||
+        window.location.pathname === "/register";
+
+      if (!isAuthRoute && !isAuthPage) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(err);
   }
